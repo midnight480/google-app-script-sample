@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      .input-field {
+        width: 100%;
+        max-width: 400px;
+        padding: 8px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      .api-key-field {
+        width: 100%;
+        max-width: 450px;
+        padding: 8px;
+        font-size: 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-family: monospace;
+      }
+      .select-field {
+        width: 100%;
+        max-width: 200px;
+        padding: 8px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .container {
+        padding: 20px;
+      }
+      label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <label>スペースID:</label>
+      <input type="text" id="spaceId" class="input-field"><br><br>
+
+      <label>ドメイン:</label>
+      <select id="domain" class="select-field">
+        <option value="backlog.com">backlog.com</option>
+        <option value="backlog.jp">backlog.jp</option>
+        <option value="backlogtool.com">backlogtool.com</option>
+      </select><br><br>
+
+      <label>APIキー:</label>
+      <input type="text" id="apiKey" class="api-key-field"><br><br>
+
+      <button id="runBtn" onclick="run()">実行</button>
+      <button onclick="google.script.host.close()">キャンセル</button>
+      <span id="progress" style="margin-left:10px;color:gray;"></span>
+    </div>
+
+    <script>
+      function run() {
+        const runBtn = document.getElementById('runBtn');
+        const progress = document.getElementById('progress');
+        runBtn.disabled = true;
+        progress.textContent = 'Backlog APIに接続中...';
+        
+        const data = {
+          spaceId: document.getElementById('spaceId').value.trim(),
+          domain: document.getElementById('domain').value,
+          apiKey: document.getElementById('apiKey').value.trim()
+        };
+        
+        // バリデーション
+        if (!data.spaceId || !data.apiKey) {
+          runBtn.disabled = false;
+          progress.textContent = 'スペースIDとAPIキーを入力してください';
+          progress.style.color = 'red';
+          return;
+        }
+        
+        // モードをチェックして適切な関数を呼び出し
+        google.script.run
+          .withSuccessHandler((isIssueCountMode) => {
+            if (isIssueCountMode) {
+              progress.textContent = '課題数取得完了！';
+            } else {
+              progress.textContent = 'データ取得完了！スプレッドシートに出力中...';
+            }
+            progress.style.color = 'green';
+            setTimeout(() => {
+              google.script.host.close();
+            }, 1500);
+          })
+          .withFailureHandler((error) => {
+            runBtn.disabled = false;
+            progress.textContent = 'エラー: ' + (error.message || 'API接続に失敗しました');
+            progress.style.color = 'red';
+          })
+          .checkModeAndExecute(data);
+      }
+    </script>
+  </body>
+</html>
