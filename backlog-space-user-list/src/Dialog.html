@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        min-width: 400px;
+      }
+      
+      div {
+        width: 100%;
+        max-width: 500px;
+      }
+      
+      label {
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+      }
+      
+      input[type="text"], select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-size: 14px;
+        margin-bottom: 15px;
+      }
+      
+      #apiKey {
+        font-family: monospace;
+        min-width: 300px;
+      }
+      
+      button {
+        padding: 10px 20px;
+        margin-right: 10px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      
+      #runBtn {
+        background-color: #4CAF50;
+        color: white;
+      }
+      
+      #runBtn:hover {
+        background-color: #45a049;
+      }
+      
+      #runBtn:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+      }
+      
+      button:last-of-type {
+        background-color: #f44336;
+        color: white;
+      }
+      
+      button:last-of-type:hover {
+        background-color: #da190b;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <label>スペースID:</label>
+      <input type="text" id="spaceId">
+
+      <label>ドメイン:</label>
+      <select id="domain">
+        <option value="backlog.com">backlog.com</option>
+        <option value="backlog.jp">backlog.jp</option>
+        <option value="backlogtool.com">backlogtool.com</option>
+      </select>
+
+      <label>APIキー:</label>
+      <input type="text" id="apiKey" placeholder="30桁の英数字を入力してください">
+
+      <button id="runBtn" onclick="run()">実行</button>
+      <button onclick="google.script.host.close()">キャンセル</button>
+      <span id="progress" style="margin-left:10px;color:gray;"></span>
+    </div>
+
+    <script>
+      function run() {
+        const runBtn = document.getElementById('runBtn');
+        const progress = document.getElementById('progress');
+        runBtn.disabled = true;
+        progress.textContent = '実行中...';
+        const data = {
+          spaceId: document.getElementById('spaceId').value.trim(),
+          domain: document.getElementById('domain').value,
+          apiKey: document.getElementById('apiKey').value.trim()
+        };
+        google.script.run
+          .withSuccessHandler(() => google.script.host.close())
+          .withFailureHandler(() => {
+            runBtn.disabled = false;
+            progress.textContent = 'エラーが発生しました';
+          })
+          .fetchAndWriteUsersAndProjects(data);
+      }
+    </script>
+  </body>
+</html>
