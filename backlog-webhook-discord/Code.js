@@ -61,7 +61,7 @@ function isValidWebhookUrl(url) {
 function initializeConfig() {
   const properties = PropertiesService.getScriptProperties();
   const defaultConfig = {
-    BACKLOG_URL: 'coderdojo.backlog.com',
+    BACKLOG_URL: '{YOUR_BACKLOG_DOMAIN}.backlog.com',
     DISCORD_WEBHOOK_URL: '',
     CATEGORY_MAP: '{}'
   };
