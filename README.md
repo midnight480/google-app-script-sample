@@ -75,7 +75,7 @@ Google Apps Scriptのエディタで「プロジェクトの設定」→「ス�
    ```json
    {
      "scriptProperties": {
-       "BACKLOG_URL": "coderdojo.backlog.com",
+       "BACKLOG_URL": "{YOUR_BACKLOG_DOMAIN}.backlog.(jp|com)",
        "DISCORD_WEBHOOK_URL": "YOUR_DISCORD_WEBHOOK_URL_HERE"
      }
    }

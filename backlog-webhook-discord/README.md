@@ -59,7 +59,7 @@ BacklogのWebhookを受信し、カテゴリに応じて適切なDiscordチャ�
     -   エディタの左側メニューから「プロジェクトの設定」（歯車アイコン）をクリックします。
     -   「スクリプトプロパティ」セクションで、「スクリプトプロパティを追加」をクリックします。
     -   以下のキーと値を設定します。
-        -   `BACKLOG_URL`: `coderdojo.backlog.com`
+        -   `BACKLOG_URL`: `{YOUR_BACKLOG_DOMAIN}.backlog.(jp|com)`
         -   `DISCORD_WEBHOOK_URL`: `https://discord.com/api/webhooks/your-webhook-url`
         -   `CATEGORY_MAP`: `{"カテゴリID1":"WebhookURL1", "カテゴリID2":"WebhookURL2"}` (JSON形式)
 3.  **保存**:
@@ -116,7 +116,7 @@ testWebhookProcessing();
 ### 課題作成時
 ```
 新たに課題が追加されました。
-https://coderdojo.backlog.com/view/PROJECT-123
+https://{YOUR_BACKLOG_DOMAIN}.backlog.(jp|com)/view/PROJECT-123
 件名: 課題のタイトル
 担当: 担当者名
 ```
@@ -124,7 +124,7 @@ https://coderdojo.backlog.com/view/PROJECT-123
 ### 課題更新時
 ```
 新たに課題が更新されました。
-https://coderdojo.backlog.com/view/PROJECT-123
+https://{YOUR_BACKLOG_DOMAIN}.backlog.(jp|com)/view/PROJECT-123
 件名: 課題のタイトル
 担当: 担当者名
 ```
@@ -132,7 +132,7 @@ https://coderdojo.backlog.com/view/PROJECT-123
 ### コメント追加時
 ```
 コメントが追加されました。
-https://coderdojo.backlog.com/view/PROJECT-123
+https://{YOUR_BACKLOG_DOMAIN}.backlog.(jp|com)/view/PROJECT-123
 件名: 課題のタイトル
 担当: 担当者名
 ```
