@@ -103,15 +103,11 @@ class FormManager {
       // 1. イベント説明（オプション）
       const descriptionItem = form.addParagraphTextItem()
         .setTitle('イベント説明（オプション）')
-        .setHelpText('会議の詳細や議題などを入力してください')
+        .setHelpText('会議の詳細や議題などを入力してください（1000文字以下）')
         .setRequired(false);
       
-      // 説明の長さ制限を追加
-      const descriptionValidation = FormApp.createTextValidation()
-        .setHelpText('説明は1000文字以下で入力してください')
-        .requireTextLengthLessThanOrEqualTo(1000)
-        .build();
-      descriptionItem.setValidation(descriptionValidation);
+      // 注意: ParagraphTextItemにはsetValidationメソッドがありません
+      // 長さ制限はヘルプテキストで案内します
       
       logInfo('オプションフィールド追加完了', {
         formId: form.getId(),
@@ -150,10 +146,14 @@ class FormManager {
         .setHelpText('通知を送りたいユーザーを選択してください（複数選択可）')
         .setRequired(required);
       
-      // ユーザーを選択肢として追加（表示名: ユーザー名、値: ユーザーID）
+      // ユーザーを選択肢として追加
+      // Google Apps Scriptでは、createChoiceは値のみを受け取り、表示名は値と同じになります
+      // 値として「ユーザー名 (ID: ユーザーID)」の形式を使用（表示名として見やすく、後で解析可能）
       const choices = users.map(user => {
         const displayName = user.name || user.userId || `ユーザーID: ${user.id}`;
-        return checkboxItem.createChoice(displayName, user.id.toString());
+        // 値として「ユーザー名|ユーザーID」の形式を使用（後で解析できるように）
+        const value = `${displayName}|${user.id}`;
+        return checkboxItem.createChoice(value);
       });
       
       checkboxItem.setChoices(choices);
@@ -198,10 +198,14 @@ class FormManager {
         .setHelpText('課題の担当者となるユーザーを選択してください')
         .setRequired(required);
       
-      // ユーザーを選択肢として追加（表示名: ユーザー名、値: ユーザーID）
+      // ユーザーを選択肢として追加
+      // Google Apps Scriptでは、createChoiceは値のみを受け取り、表示名は値と同じになります
+      // 値として「ユーザー名|ユーザーID」の形式を使用（表示名として見やすく、後で解析可能）
       const choices = users.map(user => {
         const displayName = user.name || user.userId || `ユーザーID: ${user.id}`;
-        return listItem.createChoice(displayName, user.id.toString());
+        // 値として「ユーザー名|ユーザーID」の形式を使用（後で解析できるように）
+        const value = `${displayName}|${user.id}`;
+        return listItem.createChoice(value);
       });
       
       listItem.setChoices(choices);

@@ -57,11 +57,13 @@ function parseFormResponses(itemResponses) {
       formData.organizerEmail = response;
     } else if (title.includes('登録者') && title.includes('担当者')) {
       // BacklogユーザーID（リストボックスから選択）
+      // 値の形式: "ユーザー名|ユーザーID"
       if (response) {
-        const userId = parseInt(response, 10);
+        const parts = response.split('|');
+        const userId = parts.length > 1 ? parseInt(parts[parts.length - 1], 10) : parseInt(response, 10);
         if (!isNaN(userId)) {
           formData.assigneeUserId = userId;
-          logInfo('担当者ユーザーID取得', { userId: userId });
+          logInfo('担当者ユーザーID取得', { userId: userId, response: response });
         }
       }
     } else if ((title.includes('開始') && title.includes('日時')) || 
@@ -81,14 +83,19 @@ function parseFormResponses(itemResponses) {
     } else if (title.includes('参加者') || title.includes('お知らせしたい人')) {
       // チェックボックスの場合（複数選択）
       if (itemType === FormApp.ItemType.CHECKBOX) {
-        // チェックボックスの選択値は配列（ユーザーIDの文字列）
+        // チェックボックスの選択値は配列
+        // 値の形式: "ユーザー名|ユーザーID"
         if (Array.isArray(response)) {
-          const userIds = response.map(r => parseInt(r, 10)).filter(id => !isNaN(id));
+          const userIds = response.map(r => {
+            const parts = r.split('|');
+            return parts.length > 1 ? parseInt(parts[parts.length - 1], 10) : parseInt(r, 10);
+          }).filter(id => !isNaN(id));
           formData.notifiedUserIds = userIds;
-          logInfo('通知先ユーザーID取得', { userIds: userIds });
+          logInfo('通知先ユーザーID取得', { userIds: userIds, responses: response });
         } else if (response) {
           // 単一選択の場合
-          const userId = parseInt(response, 10);
+          const parts = response.split('|');
+          const userId = parts.length > 1 ? parseInt(parts[parts.length - 1], 10) : parseInt(response, 10);
           if (!isNaN(userId)) {
             formData.notifiedUserIds = [userId];
           }
