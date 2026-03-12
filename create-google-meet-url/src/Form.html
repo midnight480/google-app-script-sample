@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Meet URL作成</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 24px;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="date"],
+    input[type="time"],
+    input[type="number"] {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    input[type="text"]:focus,
+    input[type="url"]:focus,
+    input[type="date"]:focus,
+    input[type="time"]:focus,
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    input[readonly] {
+      background-color: #f5f5f5;
+      cursor: not-allowed;
+    }
+
+    .help-text {
+      font-size: 12px;
+      color: #999;
+      margin-top: 4px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 30px;
+    }
+
+    button {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      display: none;
+    }
+
+    .result.success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+
+    .result.error {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+
+    .result-title {
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .result-content {
+      font-size: 14px;
+      word-break: break-all;
+    }
+
+    .result-content a {
+      color: #667eea;
+      text-decoration: none;
+    }
+
+    .result-content a:hover {
+      text-decoration: underline;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Google Meet URL作成</h1>
+    <p class="subtitle">Backlogの課題にGoogle Meet URLを追加します</p>
+
+    <form id="meetForm">
+      <div class="form-group">
+        <label for="meetTitle">会議のタイトル <span style="color: red;">*</span></label>
+        <input type="text" id="meetTitle" name="meetTitle" required 
+               placeholder="例: 定例ミーティング">
+        <div class="help-text">Google Meet会議のタイトルを入力してください</div>
+      </div>
+
+      <div class="form-group">
+        <label for="meetDescription">概要</label>
+        <input type="text" id="meetDescription" name="meetDescription" 
+               placeholder="会議の概要を入力（任意）">
+        <div class="help-text">会議の概要を入力してください（任意項目）</div>
+      </div>
+
+      <div class="form-group">
+        <label for="meetDate">会議の日付 <span style="color: red;">*</span></label>
+        <input type="date" id="meetDate" name="meetDate" required>
+        <div class="help-text">会議の日付を選択してください</div>
+      </div>
+
+      <div class="form-group">
+        <label for="meetStartTime">開始時刻 <span style="color: red;">*</span></label>
+        <input type="time" id="meetStartTime" name="meetStartTime" required>
+        <div class="help-text">会議の開始時刻を入力してください</div>
+      </div>
+
+      <div class="form-group">
+        <label for="meetDuration">会議時間（分） <span style="color: red;">*</span></label>
+        <input type="number" id="meetDuration" name="meetDuration" min="1" max="1440" value="60" required>
+        <div class="help-text">会議の時間を分単位で入力してください（1分〜1440分）</div>
+      </div>
+
+      <div class="form-group">
+        <label for="meetEndTime">終了時刻（自動計算）</label>
+        <input type="time" id="meetEndTime" name="meetEndTime" readonly style="background-color: #f5f5f5;">
+        <div class="help-text">開始時刻と会議時間から自動計算されます</div>
+      </div>
+
+      <div class="form-group">
+        <label for="calendarId">作成先カレンダーID（任意）</label>
+        <input type="text" id="calendarId" name="calendarId" 
+               placeholder="例: c_3f32dbf2385c308f36f97924b22ec7ba41bfdb8d090fb8d0a704b01083996db0@group.calendar.google.com">
+        <div class="help-text">共有カレンダーのIDを入力してください。未指定の場合はデフォルトカレンダーに作成されます</div>
+      </div>
+
+      <div class="form-group">
+        <label for="spaceUrl">BacklogスペースURL <span style="color: red;">*</span></label>
+        <input type="url" id="spaceUrl" name="spaceUrl" required 
+               placeholder="https://your-space.backlog.com">
+        <div class="help-text">BacklogのスペースURLを入力してください</div>
+      </div>
+
+      <div class="form-group">
+        <label for="issueKey">課題キー <span style="color: red;">*</span></label>
+        <input type="text" id="issueKey" name="issueKey" required 
+               placeholder="例: PROJECT-123">
+        <div class="help-text">Backlogの課題キーを入力してください</div>
+      </div>
+
+      <div class="form-group">
+        <label for="apiKey">Backlog APIキー <span style="color: red;">*</span></label>
+        <input type="text" id="apiKey" name="apiKey" required 
+               placeholder="APIキーを入力">
+        <div class="help-text">BacklogのAPIキーを入力してください</div>
+      </div>
+
+      <div class="button-group">
+        <button type="submit" class="btn-primary" id="submitBtn">Google Meet URLを作成</button>
+        <button type="button" class="btn-secondary" onclick="resetForm()">リセット</button>
+      </div>
+    </form>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p style="margin-top: 10px; color: #666;">処理中...</p>
+    </div>
+
+    <div class="result" id="result">
+      <div class="result-title" id="resultTitle"></div>
+      <div class="result-content" id="resultContent"></div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('meetForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const meetTitle = document.getElementById('meetTitle').value.trim();
+      const meetDescription = document.getElementById('meetDescription').value.trim();
+      const meetDate = document.getElementById('meetDate').value;
+      const meetStartTime = document.getElementById('meetStartTime').value;
+      const meetDuration = parseInt(document.getElementById('meetDuration').value);
+      const meetEndTime = document.getElementById('meetEndTime').value;
+      const calendarId = document.getElementById('calendarId').value.trim();
+      const spaceUrl = document.getElementById('spaceUrl').value.trim();
+      const issueKey = document.getElementById('issueKey').value.trim();
+      const apiKey = document.getElementById('apiKey').value.trim();
+
+      if (!meetTitle || !meetDate || !meetStartTime || !meetDuration || !meetEndTime || !spaceUrl || !issueKey || !apiKey) {
+        showResult('error', 'エラー', '必須項目をすべて入力してください');
+        return;
+      }
+
+      // 会議時間のバリデーション
+      if (meetDuration < 1 || meetDuration > 1440) {
+        showResult('error', 'エラー', '会議時間は1分〜1440分の範囲で入力してください');
+        return;
+      }
+
+      // 日時バリデーション
+      const startDateTime = new Date(meetDate + 'T' + meetStartTime);
+      const endDateTime = new Date(meetDate + 'T' + meetEndTime);
+      
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        showResult('error', 'エラー', '日付または時刻の形式が正しくありません');
+        return;
+      }
+      
+      if (endDateTime <= startDateTime) {
+        showResult('error', 'エラー', '終了時刻は開始時刻より後である必要があります');
+        return;
+      }
+
+      // ローディング表示
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('result').style.display = 'none';
+      document.getElementById('submitBtn').disabled = true;
+
+      // データを送信
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        .doPostFromForm({
+          meetTitle: meetTitle,
+          meetDescription: meetDescription,
+          meetDate: meetDate,
+          meetStartTime: meetStartTime,
+          meetDuration: meetDuration,
+          meetEndTime: meetEndTime,
+          calendarId: calendarId,
+          issueKey: issueKey,
+          apiKey: apiKey,
+          spaceUrl: spaceUrl
+        });
+    });
+
+    function onSuccess(response) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('submitBtn').disabled = false;
+
+      if (response.success) {
+        const meetUrl = response.data.meetUrl;
+        const issueKey = response.data.issueKey;
+        showResult('success', '成功', 
+          `Google Meet URLを作成しました！<br><br>` +
+          `<strong>課題キー:</strong> ${issueKey}<br>` +
+          `<strong>Google Meet URL:</strong> <a href="${meetUrl}" target="_blank">${meetUrl}</a><br><br>` +
+          `Backlogの課題にコメントを追加しました。`
+        );
+      } else {
+        showResult('error', 'エラー', response.error || 'エラーが発生しました');
+      }
+    }
+
+    function onFailure(error) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('submitBtn').disabled = false;
+      showResult('error', 'エラー', error.message || 'エラーが発生しました');
+    }
+
+    function showResult(type, title, content) {
+      const resultDiv = document.getElementById('result');
+      const resultTitle = document.getElementById('resultTitle');
+      const resultContent = document.getElementById('resultContent');
+
+      resultDiv.className = 'result ' + type;
+      resultTitle.textContent = title;
+      resultContent.innerHTML = content;
+      resultDiv.style.display = 'block';
+
+      // 成功時はスクロール
+      if (type === 'success') {
+        resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    // 終了時刻を自動計算する関数
+    function calculateEndTime() {
+      const meetDate = document.getElementById('meetDate').value;
+      const meetStartTime = document.getElementById('meetStartTime').value;
+      const meetDuration = parseInt(document.getElementById('meetDuration').value) || 60;
+
+      if (meetDate && meetStartTime && meetDuration > 0) {
+        const startDateTime = new Date(meetDate + 'T' + meetStartTime);
+        if (!isNaN(startDateTime.getTime())) {
+          const endDateTime = new Date(startDateTime.getTime() + meetDuration * 60 * 1000);
+          const endTimeStr = endDateTime.toTimeString().slice(0, 5);
+          document.getElementById('meetEndTime').value = endTimeStr;
+        }
+      }
+    }
+
+    // 日付、開始時刻、会議時間が変更されたときに終了時刻を再計算
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('meetDate').addEventListener('change', calculateEndTime);
+      document.getElementById('meetStartTime').addEventListener('change', calculateEndTime);
+      document.getElementById('meetDuration').addEventListener('input', calculateEndTime);
+      document.getElementById('meetDuration').addEventListener('change', calculateEndTime);
+    });
+
+    function resetForm() {
+      document.getElementById('meetForm').reset();
+      document.getElementById('result').style.display = 'none';
+      document.getElementById('loading').style.display = 'none';
+      // デフォルト値を設定（明日の14:00、60分）
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const startTime = new Date(tomorrow);
+      startTime.setHours(14, 0, 0, 0);
+      
+      document.getElementById('meetDate').value = tomorrow.toISOString().split('T')[0];
+      document.getElementById('meetStartTime').value = startTime.toTimeString().slice(0, 5);
+      document.getElementById('meetDuration').value = 60;
+      calculateEndTime();
+    }
+
+    // ページ読み込み時にデフォルト値を設定
+    window.onload = function() {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const startTime = new Date(tomorrow);
+      startTime.setHours(14, 0, 0, 0);
+      
+      document.getElementById('meetDate').value = tomorrow.toISOString().split('T')[0];
+      document.getElementById('meetStartTime').value = startTime.toTimeString().slice(0, 5);
+      document.getElementById('meetDuration').value = 60;
+      calculateEndTime();
+    };
+  </script>
+</body>
+</html>
+

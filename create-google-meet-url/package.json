@@ -1,0 +1,25 @@
+{
+  "name": "create-google-meet-url",
+  "version": "1.0.0",
+  "description": "Google Apps ScriptでGoogle Meet URLを作成し、Backlogの課題にコメントを追加する",
+  "scripts": {
+    "clasp:login": "clasp login",
+    "clasp:create": "clasp create --type webapp --title 'Create Google Meet URL' --rootDir ./src",
+    "clasp:push": "clasp push",
+    "clasp:pull": "clasp pull",
+    "clasp:open": "clasp open",
+    "clasp:deploy": "clasp deploy --description 'Deploy web app'"
+  },
+  "keywords": [
+    "google-apps-script",
+    "google-meet",
+    "backlog",
+    "clasp"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  }
+}
+
