@@ -160,6 +160,11 @@ function getTrashType(dateInfo) {
     if (weekday === CONSTANTS.WEEKDAYS.FRIDAY && date === 16) {
       trashTypes.push(CONSTANTS.TRASH_TYPES.NON_BURNABLE);
     }
+  } else if (year === 2027 && month === 1) {
+    // 令和9年(2027年)1月は例外処理
+    if (weekday === CONSTANTS.WEEKDAYS.FRIDAY && date === 15) {
+      trashTypes.push(CONSTANTS.TRASH_TYPES.NON_BURNABLE);
+    }
   } else {
     // 通常の月の処理
     if (weekday === CONSTANTS.WEEKDAYS.FRIDAY && weekOfMonth === 1) {
@@ -179,8 +184,12 @@ function getTrashType(dateInfo) {
 function getAdditionalMessage(date) {
   let messageURL;
 
-  // 令和7年度 (2025/4/1 ~)
-  if (date >= new Date('2025-04-01')) {
+  // 令和8年度 (2026/4/1 ~)
+  if (date >= new Date('2026-04-01')) {
+    messageURL = "https://www.city.saga.lg.jp/site_files/file/2026/202602/p1jich859m190nqrtdg4132uj7u8.pdf";
+  }
+  // 令和7年度 (2025/4/1 ~ 2026/3/31)
+  else if (date >= new Date('2025-04-01')) {
     messageURL = "https://www.city.saga.lg.jp/site_files/file/2025/202503/p1imh8o2fr1o401dob41qscd378.pdf";
   } 
   // 令和6年度 (2024/4/1 ~ 2025/3/31)
@@ -247,6 +256,11 @@ function testTrashCollectionLogic() {
     { date: '2026-01-16', expected: [CONSTANTS.TRASH_TYPES.NON_BURNABLE] }, // 例外の第3金曜日
     { date: '2026-01-09', expected: [CONSTANTS.TRASH_TYPES.RECYCLABLE] }, // 第2金曜日(資源物)
     { date: '2026-02-06', expected: [CONSTANTS.TRASH_TYPES.NON_BURNABLE] }, // 2月の第1金曜日
+    // 令和9年(2027年)1月の例外テスト
+    { date: '2027-01-01', expected: [] }, // 第1金曜日だが収集なし(元日)
+    { date: '2027-01-15', expected: [CONSTANTS.TRASH_TYPES.NON_BURNABLE] }, // 例外の第3金曜日
+    { date: '2027-01-08', expected: [CONSTANTS.TRASH_TYPES.RECYCLABLE] }, // 第2金曜日(資源物)
+    { date: '2027-02-05', expected: [CONSTANTS.TRASH_TYPES.NON_BURNABLE] }, // 2月の第1金曜日
   ];
   
   let successCount = 0;
