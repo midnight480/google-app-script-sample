@@ -1,4 +1,4 @@
-# Gemini CLI Project Instructions (google-app-script-sample)
+# OpenAI Codex Project Instructions (google-app-script-sample)
 
 ## 出力言語
 - すべての出力は日本語で行ってください
