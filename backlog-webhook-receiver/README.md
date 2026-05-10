@@ -9,6 +9,8 @@ BacklogのWebhookを受信し、データを処理・保存するGoogle Apps Scr
 - データの永続化（Google Spreadsheet等）
 - エラーハンドリングとセキュリティ対策
 - 複数プロジェクトの対応
+- Git Webhook（プッシュイベント等）の対応と専用シートへの保存
+- モダンなWebUI（ダッシュボード）による受信データのページネーション付き一覧・詳細確認
 - カスタム処理の拡張可能
 
 ## 📋 前提条件
@@ -44,26 +46,23 @@ clasp deploy
 
 ### 2. データ保存先の準備
 
-#### Google Spreadsheetの場合
+スクリプトをデプロイ後、Backlogから最初のWebhookが送信されると、紐づいたスプレッドシートに以下のシートとヘッダー行が**自動的に作成されます**。事前のシート作成や列の定義は不要です。
 
-1. 新しいGoogle Spreadsheetを作成
-2. 以下の列を持つシートを作成：
-
-| 列 | 項目 | 説明 |
-|---|---|---|
-| A | タイムスタンプ | 受信時刻 |
-| B | イベントタイプ | Webhookの種類 |
-| C | プロジェクトキー | プロジェクト識別子 |
-| D | 課題キー | 課題番号 |
-| E | タイトル | 課題タイトル |
-| F | 担当者 | 担当者名 |
-| G | ステータス | 課題ステータス |
-| H | 優先度 | 優先度レベル |
-| I | カテゴリ | カテゴリ名 |
-| J | 更新者 | 更新者名 |
-| K | 更新内容 | 更新詳細 |
+- `RawData` シート: 受信したWebhookの全データ
+- `WebhookLog` シート: 課題関連のイベントログ
+- `GitWebhookLog` シート: Git関連のイベントログ
 
 ### 3. Google Apps Scriptの設定
+
+#### プロジェクトとスプレッドシートの作成（初回のみ）
+
+以下のコマンドを実行すると、新規でGoogleスプレッドシートが作成され、そこにバインドされたGASプロジェクトがセットアップされます。
+
+```bash
+clasp create --type sheets --title "Backlog Webhook Receiver"
+```
+
+※ コマンド実行後にコンソールに表示されるGoogleスプレッドシートのURLを開き、確認できるようにしておいてください。
 
 #### appsscript.jsonでの設定
 
@@ -74,7 +73,7 @@ clasp deploy
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
   "webapp": {
-    "access": "ANYONE_ANONYMOUS",
+    "access": "ANYONE",
     "executeAs": "USER_DEPLOYING"
   }
 }
@@ -85,14 +84,12 @@ clasp deploy
 環境変数はGoogle Apps Scriptのエディタで設定します。
 
 1.  **Google Apps Scriptエディタを開く**:
-    `clasp open`コマンドを実行するか、ブラウザで直接開きます。
+    `clasp open-script`コマンドを実行するか、ブラウザで直接開きます。
 2.  **スクリプトプロパティの設定**:
     -   エディタの左側メニューから「プロジェクトの設定」（歯車アイコン）をクリックします。
     -   「スクリプトプロパティ」セクションで、「スクリプトプロパティを追加」をクリックします。
     -   以下のキーと値を設定します。
         -   `BACKLOG_URL`: `your-project.backlog.com`
-        -   `SPREADSHEET_ID`: `your-spreadsheet-id`
-        -   `SHEET_NAME`: `Webhook Data`
         -   `LOG_LEVEL`: `INFO`
 3.  **保存**:
     「スクリプトプロパティを保存」をクリックします。
@@ -100,8 +97,6 @@ clasp deploy
 #### 設定項目の説明
 
 - `BACKLOG_URL`: Backlogのドメイン
-- `SPREADSHEET_ID`: データ保存用スプレッドシートID
-- `SHEET_NAME`: データ保存用シート名
 - `LOG_LEVEL`: ログレベル（DEBUG, INFO, WARN, ERROR）
 
 ### 4. 権限設定
@@ -124,16 +119,28 @@ clasp deploy
 
 ## 🔧 使用方法
 
+### Webアプリ（ダッシュボード）の表示
+
+デプロイしたWebアプリのURL（`https://script.google.com/macros/s/.../exec`）をブラウザで開くと、受信したWebhookの履歴を確認できるダッシュボードが表示されます。
+
+- **All Webhooks (Raw Data) タブ**: 受信したすべてのWebhookの生データ一覧です。「詳細を見る」をクリックすると、送信されたJSONペイロードの全体をモーダルで確認できます。
+- **Git Webhooks タブ**: Git Webhook（リポジトリへのプッシュなど）の履歴が整形されて一覧表示されます。
+
 ### メイン関数
 
 ```javascript
+// WebアプリのUIを表示するエンドポイント
+function doGet(e) {
+  // Index.htmlをレンダリング
+}
+
 // Webhookエンドポイント（自動実行）
 function doPost(e) {
-  // BacklogからのWebhookを受信して処理
+  // BacklogからのWebhookを受信して処理・保存
 }
 
 // 手動実行用のテスト関数
-function testWebhookReceiver() {
+function testWebhookProcessing() {
   // テスト用のWebhookデータを処理
 }
 ```
@@ -209,6 +216,28 @@ function testWebhookReceiver() {
 }
 ```
 
+#### Git Webhook（プッシュ時）
+```json
+{
+  "type": 12,
+  "repository": {
+    "name": "リポジトリ名"
+  },
+  "content": {
+    "ref": "refs/heads/main",
+    "revisions": [
+      {
+        "rev": "abcdef123456",
+        "comment": "コミットメッセージ"
+      }
+    ]
+  },
+  "createdUser": {
+    "name": "プッシュしたユーザー名"
+  }
+}
+```
+
 ## 🔍 ログ出力
 
 構造化ログで詳細な情報を出力：
@@ -267,7 +296,7 @@ testWebhookProcessing();
 
 ```javascript
 function saveWebhookData(webhookData) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('WebhookLog');
   
   const rowData = [
     new Date(),                    // タイムスタンプ
@@ -332,6 +361,22 @@ function validateWebhookData(webhookData) {
   }
 }
 ```
+
+
+## 🗑 プロジェクトの削除（アンインストール）
+
+不要になったプロジェクトを削除する場合は、以下の手順を実行してください。
+
+1. **GASプロジェクトの削除**
+   - [Google Apps Script ダッシュボード](https://script.google.com/home) にアクセスします。
+   - 対象のプロジェクトの右側にある「︙」メニューから「削除」を選択し、ゴミ箱に移動します。
+
+2. **連携サービスの解除（該当する場合）**
+   - BacklogやDiscordなどの外部サービスで設定したWebhook URLがある場合は、各サービスの設定画面からWebhookを削除してください。
+   - 出力先として作成したスプレッドシートが不要な場合は、Googleドライブから削除してください。
+
+3. **ローカル環境の整理**
+   - ローカルのディレクトリ内にある `.clasp.json` を削除すると、GASプロジェクトとのリンクが解除されます。
 
 ## 🔗 関連リンク
 

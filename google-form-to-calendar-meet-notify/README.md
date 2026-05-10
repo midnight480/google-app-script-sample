@@ -64,7 +64,7 @@ clasp create --title "Google Form to Calendar Meet Notify" --type standalone
 clasp push
 
 # デプロイ後、Google Apps Scriptエディタで確認
-clasp open
+clasp open-script
 ```
 
 ### 4. Google Calendar APIの有効化
@@ -223,7 +223,7 @@ clasp push
 clasp status
 
 # Google Apps Scriptエディタで開く
-clasp open
+clasp open-script
 ```
 
 ### デプロイ
@@ -233,7 +233,7 @@ clasp open
 clasp push
 
 # デプロイ後、Google Apps Scriptエディタでテスト実行
-clasp open
+clasp open-script
 ```
 
 ### コードの取得（他の環境から）
@@ -352,3 +352,19 @@ TestRunner.runAllPropertyTests()
 
 **作成日**: 2025年1月
 **最終更新**: 2025年1月
+
+
+## 🗑 プロジェクトの削除（アンインストール）
+
+不要になったプロジェクトを削除する場合は、以下の手順を実行してください。
+
+1. **GASプロジェクトの削除**
+   - [Google Apps Script ダッシュボード](https://script.google.com/home) にアクセスします。
+   - 対象のプロジェクトの右側にある「︙」メニューから「削除」を選択し、ゴミ箱に移動します。
+
+2. **連携サービスの解除（該当する場合）**
+   - BacklogやDiscordなどの外部サービスで設定したWebhook URLがある場合は、各サービスの設定画面からWebhookを削除してください。
+   - 出力先として作成したスプレッドシートが不要な場合は、Googleドライブから削除してください。
+
+3. **ローカル環境の整理**
+   - ローカルのディレクトリ内にある `.clasp.json` を削除すると、GASプロジェクトとのリンクが解除されます。

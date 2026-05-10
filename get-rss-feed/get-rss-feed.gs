@@ -1,10 +1,14 @@
-// RSSフィード取得スクリプト
-// スプレッドシートからRSSフィードのURLを取得し、重複を排除して別のスプレッドシートに書き込む
+// RSSフィード取得・Discord通知スクリプト
+// 複数のRSSフィードを監視し、更新があった場合にDiscordのWebhookに通知を送信する
 
 // 定数定義
 const CONSTANTS = {
-  RSS_VERSION_PATTERN: 'rss/1.0',
-  DEFAULT_SLEEP_MS: 1000
+  DEFAULT_SLEEP_MS: 1000,
+  RSS_PROPERTY_PREFIX: 'RSS_URL_',
+  DEFAULT_SPREADSHEET_ID: 'YOUR_SPREADSHEET_ID_HERE',
+  DEFAULT_SHEET_NAME: 'YOUR_SHEET_NAME_HERE',
+  DEFAULT_CELL: 'A1',
+  DEFAULT_WEBHOOK_URL: 'YOUR_DISCORD_WEBHOOK_URL_HERE'
 };
 
 // ログ出力関数
@@ -36,43 +40,36 @@ function logWarning(message, data = {}) {
 }
 
 // バリデーション関数
-function isValidSpreadsheetId(spreadsheetId) {
-  return spreadsheetId && 
-         spreadsheetId !== 'YOUR_SOURCE_SPREADSHEET_ID_HERE' && 
-         spreadsheetId !== 'YOUR_TARGET_SPREADSHEET_ID_HERE' && 
-         /^[a-zA-Z0-9-_]+$/.test(spreadsheetId);
-}
+function validateConfig(config) {
+  let isValid = true;
 
-function isValidRssUrl(url) {
-  return url && 
-         typeof url === 'string' && 
-         url.includes(CONSTANTS.RSS_VERSION_PATTERN);
-}
+  if (!config.rssUrls || config.rssUrls.length === 0) {
+    logWarning('RSS_URL_x の設定が見つかりません');
+    isValid = false;
+  }
 
-function isValidSheetName(sheetName) {
-  return sheetName && 
-         sheetName !== 'YOUR_SOURCE_SHEET_NAME_HERE' && 
-         sheetName !== 'YOUR_TARGET_SHEET_NAME_HERE' && 
-         sheetName.length > 0;
-}
+  if (!config.webhookUrl || config.webhookUrl === CONSTANTS.DEFAULT_WEBHOOK_URL) {
+    logWarning('Discord Webhook URL が正しく設定されていません');
+    isValid = false;
+  }
 
-function isValidColumnName(columnName) {
-  return columnName && 
-         columnName !== 'YOUR_SOURCE_COLUMN_NAME_HERE' && 
-         columnName !== 'YOUR_TARGET_COLUMN_NAME_HERE' && 
-         columnName.length > 0;
+  if (!config.spreadsheetId || config.spreadsheetId === CONSTANTS.DEFAULT_SPREADSHEET_ID) {
+    logWarning('スプレッドシートID が正しく設定されていません');
+    isValid = false;
+  }
+
+  return isValid;
 }
 
 // 設定の初期化
 function initializeConfig() {
   const properties = PropertiesService.getScriptProperties();
   const defaultConfig = {
-    SOURCE_SPREADSHEET_ID: 'YOUR_SOURCE_SPREADSHEET_ID_HERE',
-    SOURCE_SHEET_NAME: 'YOUR_SOURCE_SHEET_NAME_HERE',
-    SOURCE_COLUMN_NAME: 'YOUR_SOURCE_COLUMN_NAME_HERE',
-    TARGET_SPREADSHEET_ID: 'YOUR_TARGET_SPREADSHEET_ID_HERE',
-    TARGET_SHEET_NAME: 'YOUR_TARGET_SHEET_NAME_HERE',
-    TARGET_COLUMN_NAME: 'YOUR_TARGET_COLUMN_NAME_HERE'
+    'RSS_URL_1': 'https://example.com/rss',
+    'WEBHOOK_URL': CONSTANTS.DEFAULT_WEBHOOK_URL,
+    'LAST_CHECKED_SPREADSHEET_ID': CONSTANTS.DEFAULT_SPREADSHEET_ID,
+    'LAST_CHECKED_SHEET_NAME': CONSTANTS.DEFAULT_SHEET_NAME,
+    'LAST_CHECKED_CELL': CONSTANTS.DEFAULT_CELL
   };
 
   Object.entries(defaultConfig).forEach(([key, value]) => {
@@ -85,289 +82,259 @@ function initializeConfig() {
 // 初回実行時にスクリプトプロパティを設定
 initializeConfig();
 
+// 設定を取得する関数
+function getConfig() {
+  const properties = PropertiesService.getScriptProperties();
+  const allProperties = properties.getProperties();
+  
+  // RSS_URL_ で始まるプロパティをすべて取得
+  const rssUrls = [];
+  for (const key in allProperties) {
+    if (key.startsWith(CONSTANTS.RSS_PROPERTY_PREFIX) && allProperties[key]) {
+      rssUrls.push(allProperties[key]);
+    }
+  }
+
+  return {
+    rssUrls: rssUrls,
+    webhookUrl: properties.getProperty('WEBHOOK_URL') || CONSTANTS.DEFAULT_WEBHOOK_URL,
+    spreadsheetId: properties.getProperty('LAST_CHECKED_SPREADSHEET_ID') || CONSTANTS.DEFAULT_SPREADSHEET_ID,
+    sheetName: properties.getProperty('LAST_CHECKED_SHEET_NAME') || CONSTANTS.DEFAULT_SHEET_NAME,
+    cell: properties.getProperty('LAST_CHECKED_CELL') || CONSTANTS.DEFAULT_CELL
+  };
+}
+
 // メイン関数
-function getAndWriteRssUrls() {
+function checkRssFeedsAndNotify() {
   try {
-    logInfo('RSSフィード処理開始');
+    logInfo('RSSフィード監視開始');
     
-    // 設定値を取得
     const config = getConfig();
-    
-    // 設定の検証
-    if (!validateConfiguration(config)) {
+    if (!validateConfig(config)) {
       logError('設定が不完全です。処理を中止します');
       return false;
     }
     
-    // ソーススプレッドシートからRSS URLを取得
-    const rssUrls = getRssUrlsFromSource(config);
-    if (!rssUrls || rssUrls.length === 0) {
-      logWarning('取得したRSS URLがありません');
-      return true;
-    }
+    const lastCheckedTime = getLastCheckedTime(config);
+    logInfo('前回確認日時', { time: new Date(lastCheckedTime).toISOString() });
     
-    logInfo('RSS URL取得完了', { count: rssUrls.length });
-    
-    // 重複を排除
-    const uniqueRssUrls = removeDuplicates(rssUrls);
-    logInfo('重複排除完了', { 
-      original: rssUrls.length, 
-      unique: uniqueRssUrls.length 
-    });
-    
-    // ターゲットスプレッドシートに書き込み
-    const writeResult = writeRssUrlsToTarget(uniqueRssUrls, config);
-    if (writeResult) {
-      logInfo('RSSフィード処理完了');
-      return true;
-    } else {
-      logError('RSSフィード処理に失敗しました');
-      return false;
-    }
-    
-  } catch (error) {
-    logError('RSSフィード処理エラー', error);
-    return false;
-  }
-}
+    let hasNewItems = false;
+    let latestTime = lastCheckedTime;
 
-// 設定を取得する関数
-function getConfig() {
-  const properties = PropertiesService.getScriptProperties();
-  return {
-    sourceSpreadsheetId: properties.getProperty('SOURCE_SPREADSHEET_ID') || 'YOUR_SOURCE_SPREADSHEET_ID_HERE',
-    sourceSheetName: properties.getProperty('SOURCE_SHEET_NAME') || 'YOUR_SOURCE_SHEET_NAME_HERE',
-    sourceColumnName: properties.getProperty('SOURCE_COLUMN_NAME') || 'YOUR_SOURCE_COLUMN_NAME_HERE',
-    targetSpreadsheetId: properties.getProperty('TARGET_SPREADSHEET_ID') || 'YOUR_TARGET_SPREADSHEET_ID_HERE',
-    targetSheetName: properties.getProperty('TARGET_SHEET_NAME') || 'YOUR_TARGET_SHEET_NAME_HERE',
-    targetColumnName: properties.getProperty('TARGET_COLUMN_NAME') || 'YOUR_TARGET_COLUMN_NAME_HERE'
-  };
-}
-
-// 設定の検証
-function validateConfiguration(config) {
-  const sourceSpreadsheetValid = isValidSpreadsheetId(config.sourceSpreadsheetId);
-  const sourceSheetValid = isValidSheetName(config.sourceSheetName);
-  const sourceColumnValid = isValidColumnName(config.sourceColumnName);
-  const targetSpreadsheetValid = isValidSpreadsheetId(config.targetSpreadsheetId);
-  const targetSheetValid = isValidSheetName(config.targetSheetName);
-  const targetColumnValid = isValidColumnName(config.targetColumnName);
-  
-  logInfo('設定検証結果', {
-    sourceSpreadsheetValid: sourceSpreadsheetValid,
-    sourceSheetValid: sourceSheetValid,
-    sourceColumnValid: sourceColumnValid,
-    targetSpreadsheetValid: targetSpreadsheetValid,
-    targetSheetValid: targetSheetValid,
-    targetColumnValid: targetColumnValid
-  });
-  
-  if (!sourceSpreadsheetValid) {
-    logWarning('ソーススプレッドシートIDが正しく設定されていません', { id: config.sourceSpreadsheetId });
-  }
-  
-  if (!sourceSheetValid) {
-    logWarning('ソースシート名が正しく設定されていません', { name: config.sourceSheetName });
-  }
-  
-  if (!sourceColumnValid) {
-    logWarning('ソース列名が正しく設定されていません', { name: config.sourceColumnName });
-  }
-  
-  if (!targetSpreadsheetValid) {
-    logWarning('ターゲットスプレッドシートIDが正しく設定されていません', { id: config.targetSpreadsheetId });
-  }
-  
-  if (!targetSheetValid) {
-    logWarning('ターゲットシート名が正しく設定されていません', { name: config.targetSheetName });
-  }
-  
-  if (!targetColumnValid) {
-    logWarning('ターゲット列名が正しく設定されていません', { name: config.targetColumnName });
-  }
-  
-  return sourceSpreadsheetValid && sourceSheetValid && sourceColumnValid && 
-         targetSpreadsheetValid && targetSheetValid && targetColumnValid;
-}
-
-// ソーススプレッドシートからRSS URLを取得する
-function getRssUrlsFromSource(config) {
-  try {
-    logInfo('ソーススプレッドシートからRSS URL取得開始', { 
-      spreadsheetId: config.sourceSpreadsheetId,
-      sheetName: config.sourceSheetName
-    });
-    
-    // 取得するSheetを開く
-    const sourceSpreadsheet = SpreadsheetApp.openById(config.sourceSpreadsheetId);
-    if (!sourceSpreadsheet) {
-      throw new Error('ソーススプレッドシートが見つかりません');
-    }
-    
-    const sourceSheet = sourceSpreadsheet.getSheetByName(config.sourceSheetName);
-    if (!sourceSheet) {
-      throw new Error('ソースシートが見つかりません');
-    }
-    
-    // 取得するSheetのデータ範囲を取得
-    const sourceRange = sourceSheet.getDataRange();
-    const sourceData = sourceRange.getValues();
-    
-    if (sourceData.length <= 1) {
-      logWarning('ソースシートにデータがありません');
-      return [];
-    }
-    
-    // 列名から列インデックスを取得する
-    const sourceColumnIndex = sourceData[0].indexOf(config.sourceColumnName);
-    if (sourceColumnIndex === -1) {
-      throw new Error(`ソース列名 "${config.sourceColumnName}" が見つかりません`);
-    }
-    
-    // 取得したRSSフィードのURLを配列に格納する
-    const rssUrls = [];
-    for (let i = 1; i < sourceData.length; i++) {
-      const row = sourceData[i];
-      const url = row[sourceColumnIndex];
+    for (const url of config.rssUrls) {
+      logInfo('RSSフィード取得中', { url: url });
       
-      if (isValidRssUrl(url)) {
-        rssUrls.push(url);
-        logInfo('RSS URL発見', { 
-          row: i + 1, 
-          url: url 
-        });
-      } else if (url) {
-        logWarning('RSS URLではないURLをスキップ', { 
-          row: i + 1, 
-          url: url 
-        });
+      try {
+        const items = fetchAndParseRss(url);
+        
+        // 新しい記事を抽出（古い順に処理するためにリバース）
+        const newItems = items
+          .filter(item => item.pubDate > lastCheckedTime)
+          .sort((a, b) => a.pubDate - b.pubDate);
+          
+        if (newItems.length > 0) {
+          logInfo('新しい記事が見つかりました', { url: url, count: newItems.length });
+          hasNewItems = true;
+          
+          for (const item of newItems) {
+            sendToDiscordWebhook(config.webhookUrl, item);
+            if (item.pubDate > latestTime) {
+              latestTime = item.pubDate;
+            }
+            Utilities.sleep(CONSTANTS.DEFAULT_SLEEP_MS);
+          }
+        }
+      } catch (error) {
+        logError('RSSフィードの処理に失敗しました', { url: url, error: error.toString() });
+        // 他のフィードは継続する
       }
     }
     
-    logInfo('RSS URL取得完了', { 
-      totalRows: sourceData.length - 1,
-      rssUrlsFound: rssUrls.length
-    });
+    // 最終実行日時を保存
+    // 記事の有無に関わらず、チェックした日時として現在の時刻を保存
+    updateLastCheckedTime(config, new Date().getTime());
     
-    return rssUrls;
-  } catch (error) {
-    logError('ソーススプレッドシートからのRSS URL取得エラー', error);
-    return [];
-  }
-}
-
-// 重複を排除する関数
-function removeDuplicates(urls) {
-  return [...new Set(urls)];
-}
-
-// ターゲットスプレッドシートにRSS URLを書き込む
-function writeRssUrlsToTarget(urls, config) {
-  try {
-    logInfo('ターゲットスプレッドシートへの書き込み開始', { 
-      spreadsheetId: config.targetSpreadsheetId,
-      sheetName: config.targetSheetName,
-      urlCount: urls.length
-    });
-    
-    if (urls.length === 0) {
-      logInfo('書き込むURLがありません');
-      return true;
+    if (!hasNewItems) {
+      logInfo('新しい記事はありませんでした');
     }
     
-    // 書き込むSheetを開く
-    const targetSpreadsheet = SpreadsheetApp.openById(config.targetSpreadsheetId);
-    if (!targetSpreadsheet) {
-      throw new Error('ターゲットスプレッドシートが見つかりません');
-    }
-    
-    const targetSheet = targetSpreadsheet.getSheetByName(config.targetSheetName);
-    if (!targetSheet) {
-      throw new Error('ターゲットシートが見つかりません');
-    }
-    
-    // 既存のURLを取得して重複を避ける
-    const existingData = targetSheet.getDataRange().getValues();
-    const existingUrls = new Set(existingData.flat());
-
-    const newUrls = urls.filter(url => !existingUrls.has(url));
-
-    if (newUrls.length === 0) {
-      logInfo('新しいURLはありません。書き込みをスキップします');
-      return true;
-    }
-    
-    // 最終行の取得と列インデックスの取得
-    const lastRow = targetSheet.getLastRow();
-    const headers = targetSheet.getRange(1, 1, 1, targetSheet.getLastColumn()).getValues()[0];
-    const targetColumnIndex = headers.indexOf(config.targetColumnName);
-    
-    if (targetColumnIndex === -1) {
-      throw new Error(`ターゲット列名 "${config.targetColumnName}" が見つかりません`);
-    }
-    
-    // バッチ操作用に2次元配列を準備
-    const batchData = newUrls.map(url => {
-      const row = new Array(headers.length).fill('');
-      row[targetColumnIndex] = url;
-      return row;
-    });
-    
-    // 一度に書き込む
-    const targetRange = targetSheet.getRange(lastRow + 1, 1, newUrls.length, headers.length);
-    targetRange.setValues(batchData);
-    
-    logInfo('ターゲットスプレッドシートへの書き込み完了', { 
-      newUrlCount: newUrls.length
-    });
-    
+    logInfo('RSSフィード監視完了');
     return true;
+    
   } catch (error) {
-    logError('ターゲットスプレッドシートへの書き込みエラー', error);
+    logError('システムエラー', error);
     return false;
   }
 }
 
-// テスト関数
-function testRssUrlRetrieval() {
-  logInfo('RSS URL取得ロジックテスト開始');
+// 前回確認日時をスプレッドシートから取得
+function getLastCheckedTime(config) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(config.spreadsheetId);
+    const sheet = spreadsheet.getSheetByName(config.sheetName);
+    if (!sheet) throw new Error('指定されたシートが見つかりません');
+    
+    const cellValue = sheet.getRange(config.cell).getValue();
+    
+    // 値がなければ0を返す（すべての記事が対象になる）
+    if (!cellValue) return 0;
+    
+    // Date型またはタイムスタンプ値として解釈
+    const time = new Date(cellValue).getTime();
+    return isNaN(time) ? 0 : time;
+  } catch (error) {
+    logWarning('前回確認日時の取得に失敗したため、0から開始します', { error: error.toString() });
+    return 0;
+  }
+}
+
+// 前回確認日時をスプレッドシートに保存
+function updateLastCheckedTime(config, timestamp) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(config.spreadsheetId);
+    const sheet = spreadsheet.getSheetByName(config.sheetName);
+    if (!sheet) throw new Error('指定されたシートが見つかりません');
+    
+    // ISO 8601形式で保存
+    const dateStr = new Date(timestamp).toISOString();
+    sheet.getRange(config.cell).setValue(dateStr);
+    logInfo('最終確認日時を更新しました', { timestamp: dateStr });
+  } catch (error) {
+    logError('最終確認日時の更新に失敗しました', error);
+  }
+}
+
+// RSSのフェッチとパース
+function fetchAndParseRss(url) {
+  const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  if (response.getResponseCode() !== 200) {
+    throw new Error(`HTTP Error: ${response.getResponseCode()}`);
+  }
   
-  // テスト用の設定（実際の設定に合わせて変更してください）
-  const testConfig = {
-    sourceSpreadsheetId: 'YOUR_TEST_SOURCE_ID',
-    sourceSheetName: 'Sheet1',
-    sourceColumnName: 'RSS_URL',
-    targetSpreadsheetId: 'YOUR_TEST_TARGET_ID',
-    targetSheetName: 'Sheet1',
-    targetColumnName: 'URLS'
+  const xml = response.getContentText();
+  const document = XmlService.parse(xml);
+  const root = document.getRootElement();
+  const namespace = root.getNamespace();
+  
+  const items = [];
+  
+  // RSS 2.0 の場合
+  if (root.getName() === 'rss') {
+    const channel = root.getChild('channel');
+    if (channel) {
+      const entries = channel.getChildren('item');
+      for (const entry of entries) {
+        const title = entry.getChildText('title') || '';
+        const link = entry.getChildText('link') || '';
+        const pubDateStr = entry.getChildText('pubDate') || '';
+        const pubDate = pubDateStr ? new Date(pubDateStr).getTime() : 0;
+        
+        items.push({ title, link, pubDate });
+      }
+    }
+  } 
+  // Atom 1.0 の場合
+  else if (root.getName() === 'feed') {
+    const entries = root.getChildren('entry', namespace);
+    for (const entry of entries) {
+      const title = entry.getChildText('title', namespace) || '';
+      
+      let link = '';
+      const linkElements = entry.getChildren('link', namespace);
+      for (const linkEl of linkElements) {
+        if (linkEl.getAttribute('rel') && linkEl.getAttribute('rel').getValue() === 'alternate') {
+          link = linkEl.getAttribute('href').getValue();
+          break;
+        } else if (!linkEl.getAttribute('rel')) {
+          link = linkEl.getAttribute('href').getValue();
+        }
+      }
+      
+      const pubDateStr = entry.getChildText('published', namespace) || entry.getChildText('updated', namespace) || '';
+      const pubDate = pubDateStr ? new Date(pubDateStr).getTime() : 0;
+      
+      items.push({ title, link, pubDate });
+    }
+  }
+  // RDF/RSS 1.0 などのフォールバック
+  else {
+    const rss1Namespace = XmlService.getNamespace('http://purl.org/rss/1.0/');
+    const dcNamespace = XmlService.getNamespace('http://purl.org/dc/elements/1.1/');
+    const entries = root.getChildren('item', rss1Namespace);
+    
+    for (const entry of entries) {
+      const title = entry.getChildText('title', rss1Namespace) || '';
+      const link = entry.getChildText('link', rss1Namespace) || '';
+      const pubDateStr = entry.getChildText('date', dcNamespace) || '';
+      const pubDate = pubDateStr ? new Date(pubDateStr).getTime() : 0;
+      
+      items.push({ title, link, pubDate });
+    }
+  }
+  
+  return items;
+}
+
+// Discord Webhookへの送信
+function sendToDiscordWebhook(webhookUrl, item) {
+  const message = `**新しい記事が公開されました**\n${item.title}\n${item.link}`;
+  
+  const payload = {
+    content: message
   };
   
-  try {
-    const rssUrls = getRssUrlsFromSource(testConfig);
-    if (rssUrls) {
-      logInfo('テスト成功: RSS URL取得', { count: rssUrls.length });
-      return true;
-    } else {
-      logError('テスト失敗: RSS URL取得');
-      return false;
-    }
-  } catch (error) {
-    logError('テスト中にエラーが発生しました', error);
-    return false;
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  
+  const response = UrlFetchApp.fetch(webhookUrl, options);
+  if (response.getResponseCode() >= 400) {
+    logError('Discordへの通知に失敗しました', { 
+      status: response.getResponseCode(),
+      response: response.getContentText()
+    });
+  } else {
+    logInfo('Discordに通知しました', { title: item.title });
   }
 }
 
-// 設定確認関数
+// テスト・確認用関数
 function checkConfiguration() {
   logInfo('設定確認開始');
   const config = getConfig();
-  const isValid = validateConfiguration(config);
+  const isValid = validateConfig(config);
   
   if (isValid) {
     logInfo('設定確認完了 - 正常に設定されています');
+    logInfo('設定内容', {
+      rssUrls: config.rssUrls,
+      webhookUrl: config.webhookUrl.substring(0, 30) + '...',
+      spreadsheetId: config.spreadsheetId,
+      sheetName: config.sheetName,
+      cell: config.cell
+    });
   } else {
     logWarning('設定確認完了 - 一部の設定が不完全です');
   }
   
   return isValid;
+}
+
+function testWebhook() {
+  const config = getConfig();
+  if (config.webhookUrl === CONSTANTS.DEFAULT_WEBHOOK_URL || !config.webhookUrl) {
+    logError('Webhook URLが設定されていません');
+    return;
+  }
+  
+  const dummyItem = {
+    title: 'テスト通知: RSS Webhook設定',
+    link: 'https://example.com',
+    pubDate: new Date().getTime()
+  };
+  
+  sendToDiscordWebhook(config.webhookUrl, dummyItem);
 }

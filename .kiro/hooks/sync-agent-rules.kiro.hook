@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Sync Agent Rules",
+  "description": "CLAUDE.md（マスター）が編集されたとき、他のエージェント向け定義ファイル（AGENTS.md, GEMINI.md, .cursorrules, .clinerules, .antigravity/rules.md, .github/copilot-instructions.md）を自動同期します。",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "CLAUDE.md"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "./scripts/sync-agent-rules.sh"
+  }
+}
