@@ -1,278 +1,81 @@
-# RSSフィード取得
+# RSSフィード取得・Discord通知ツール
 
-指定したRSSフィードを取得し、新しい記事を検出して通知するGoogle Apps Scriptです。複数のRSSフィードを監視し、更新があった場合に通知を送信します。
+複数の指定したRSSフィードを監視し、新しい記事を検出してDiscordのWebhook経由で通知するGoogle Apps Scriptです。
 
 ## 🎯 機能
 
 - 複数RSSフィードの監視
 - 新しい記事の自動検出
-- 通知システム（Slack、Discord、メール等）
+- DiscordのWebhookへの通知送信
+- 実行状態（前回確認日時）のスプレッドシートへの保存
 - エラーハンドリングと詳細なログ出力
 - 定期実行による自動監視
-- 重複記事の除外機能
 
 ## 📋 前提条件
 
 - 監視対象のRSSフィードURL
-- 通知先の設定（Slack、Discord、メール等）
+- 通知先DiscordのWebhook URL
 - Google Apps Scriptの実行権限
-- 外部URLへの接続権限
+- 前回の確認日時を保存するためのGoogleスプレッドシート
 
 ## ⚙️ セットアップ
 
-### 1. RSSフィードの準備
+### 1. スプレッドシートの準備
 
-#### 監視対象のRSSフィード例
+前回の確認日時を保存するためのスプレッドシートを作成し、任意のシートとセルを準備します。（例: `シート1` の `A1` セル）
+このスプレッドシートのURLからID（`https://docs.google.com/spreadsheets/d/ここ/edit` の「ここ」の部分）をコピーしておきます。
 
-- 技術ブログ: `https://example.com/feed.xml`
-- ニュースサイト: `https://news.example.com/rss`
-- 企業ブログ: `https://company.example.com/blog/feed`
+### 2. GASプロジェクトの設定
 
-#### RSSフィードの確認方法
+#### プロジェクトの作成とコードの反映（初回のみ）
 
-1. ブラウザでRSSフィードURLにアクセス
-2. XML形式でデータが表示されることを確認
-3. 最新記事の情報が含まれていることを確認
-
-### 2. 通知システムの設定
-
-#### Slack通知の場合
-
-1. Slack Webhook URLを作成
-2. 通知用チャンネルを設定
-
-#### Discord通知の場合
-
-1. Discord Webhook URLを作成
-2. 通知用チャンネルを設定
-
-#### メール通知の場合
-
-1. Gmail送信権限を設定
-2. 通知先メールアドレスを設定
-
-### 3. Google Apps Scriptの設定
-
-#### appsscript.jsonでの設定
-
-```json
-{
-  "timeZone": "Asia/Tokyo",
-  "dependencies": {},
-  "exceptionLogging": "STACKDRIVER",
-  "runtimeVersion": "V8"
-}
+```bash
+clasp create --type standalone --title "get-rss-feed"
+clasp push
+clasp open-script
 ```
 
 #### スクリプトプロパティの設定
 
-環境変数はGoogle Apps Scriptのエディタで設定します。
+Google Apps Scriptのエディタ（`clasp open-script`で開いた画面）で、左メニューの歯車アイコン（プロジェクトの設定）から「スクリプト プロパティ」に以下の値を設定します：
 
-1.  **Google Apps Scriptエディタを開く**:
-    `clasp open`コマンドを実行するか、ブラウザで直接開きます。
-2.  **スクリプトプロパティの設定**:
-    -   エディタの左側メニューから「プロジェクトの設定」（歯車アイコン）をクリックします。
-    -   「スクリプトプロパティ」セクションで、「スクリプトプロパティを追加」をクリックします。
-    -   以下のキーと値を設定します。
-        -   `RSS_FEEDS`: `https://example.com/feed.xml,https://news.example.com/rss`
-        -   `NOTIFICATION_TYPE`: `slack`
-        -   `SLACK_WEBHOOK_URL`: `https://hooks.slack.com/services/your-webhook-url`
-        -   `DISCORD_WEBHOOK_URL`: `https://discord.com/api/webhooks/your-webhook-url`
-        -   `EMAIL_RECIPIENTS`: `user@example.com`
-        -   `CHECK_INTERVAL_HOURS`: `1`
-3.  **保存**:
-    「スクリプトプロパティを保存」をクリックします。
+- `WEBHOOK_URL`: Discordで取得したWebhook URL
+- `RSS_URL_1`: 監視したいRSSフィードのURL（1つ目）
+- `RSS_URL_2`: 監視したいRSSフィードのURL（2つ目以降、必要に応じて追加）
+- `LAST_CHECKED_SPREADSHEET_ID`: 準備したスプレッドシートのID
+- `LAST_CHECKED_SHEET_NAME`: 準備したシート名（例: `シート1`）
+- `LAST_CHECKED_CELL`: 実行日時を保存するセル（例: `A1`）
 
-#### 設定項目の説明
+※ スクリプトを初回実行すると、デフォルトのプロパティが自動生成されるので、それを編集しても構いません。
 
-- `RSS_FEEDS`: 監視対象のRSSフィードURL（カンマ区切り）
-- `NOTIFICATION_TYPE`: 通知タイプ（slack, discord, email）
-- `SLACK_WEBHOOK_URL`: Slack Webhook URL
-- `DISCORD_WEBHOOK_URL`: Discord Webhook URL
-- `EMAIL_RECIPIENTS`: メール通知先（カンマ区切り）
-- `CHECK_INTERVAL_HOURS`: チェック間隔（時間）
+### 3. デプロイとトリガー設定
 
-### 4. 権限設定
+設定が完了したら、`checkRssFeedsAndNotify` 関数を定期実行（トリガー）に設定します。
+（例: 1時間おき、1日1回など、フィードの更新頻度に合わせて設定してください）
 
-初回実行時に以下の権限を許可：
+## 🛠 スクリプトのテスト
 
-- 外部URLへの接続権限
-- URL Fetch APIの使用権限
-- メール送信権限（メール通知の場合）
+設定が正しいかどうか確認するために、エディタ上から以下の関数を実行できます。
 
-### 5. デプロイ
+- `checkConfiguration()`: 設定値（スクリプトプロパティ）が正しく設定されているかログに出力して確認します。
+- `testWebhook()`: DiscordのWebhookにテストメッセージを送信できるか確認します。
+- `checkRssFeedsAndNotify()`: 実際の処理を手動で実行します。（※スプレッドシートのセルが空の場合は、現在までのすべての記事が新しい記事と判定され、大量に通知が飛ぶ可能性があるのでご注意ください）
 
-```bash
-# コードをプッシュ
-clasp push
+## 📝 ログの確認
 
-# 定期実行の設定
-# Google Apps Scriptのトリガー設定で定期実行を設定
-```
+GASエディタの「実行数」タブまたはGCPのStackdriverログから、JSON形式の構造化ログを確認できます。エラーが発生した場合はここから詳細な原因を特定できます。
 
-## 🔧 使用方法
+## 🗑 プロジェクトの削除（アンインストール）
 
-### メイン関数
+不要になったプロジェクトを削除する場合は、以下の手順を実行してください。
 
-```javascript
-// 定期実行用のメイン関数
-function checkRssFeeds() {
-  // RSSフィードをチェックして通知
-}
+1. **GASプロジェクトの削除**
+   - [Google Apps Script ダッシュボード](https://script.google.com/home) にアクセスします。
+   - 対象のプロジェクトの右側にある「︙」メニューから「削除」を選択し、ゴミ箱に移動します。
 
-// 手動実行用のテスト関数
-function testRssNotification() {
-  // テスト用の通知を送信
-}
-```
+2. **連携サービスの解除（該当する場合）**
+   - BacklogやDiscordなどの外部サービスで設定したWebhook URLがある場合は、各サービスの設定画面からWebhookを削除してください。
+   - 出力先として作成したスプレッドシートが不要な場合は、Googleドライブから削除してください。
 
-### 定期実行の設定
-
-1. Google Apps Scriptエディタで「トリガー」を開く
-2. 「トリガーを追加」をクリック
-3. 以下の設定で作成：
-   - 実行する関数：`checkRssFeeds`
-   - 実行するデプロイ：`Head`
-   - イベントのソース：`時間主導型`
-   - 時間ベースのトリガーのタイプ：`時間主導型`
-   - 間隔：`1時間おき`（推奨）
-
-## 📊 通知内容
-
-### RSS記事通知例
-
-```
-📰 新しい記事があります
-
-📋 タイトル: 最新の技術トレンドについて
-📅 公開日: 2024-01-15 10:30
-👤 著者: 技術ライター
-🔗 URL: https://example.com/article/123
-📝 概要: 最新の技術トレンドについて詳しく解説します...
-
-📋 タイトル: 開発環境の構築方法
-📅 公開日: 2024-01-15 09:15
-👤 著者: 開発者
-🔗 URL: https://example.com/article/124
-📝 概要: 効率的な開発環境の構築方法を紹介...
-```
-
-### 通知タイミング
-
-- 設定した間隔での定期チェック
-- 新しい記事が検出された場合
-- 手動実行でもテスト可能
-
-## 🔍 ログ出力
-
-構造化ログで詳細な情報を出力：
-
-```json
-{
-  "timestamp": "2024-01-01T10:00:00.000Z",
-  "level": "INFO",
-  "message": "RSSフィードチェック開始",
-  "data": {
-    "feeds": ["https://example.com/feed.xml"],
-    "lastCheckTime": "2024-01-01T09:00:00.000Z"
-  }
-}
-```
-
-## 🛠 トラブルシューティング
-
-### よくある問題
-
-1. **RSSフィードにアクセスできない**
-   - URLが正しいか確認
-   - RSSフィードが有効か確認
-   - アクセス制限がないか確認
-
-2. **通知が送信されない**
-   - 通知設定が正しいか確認
-   - Webhook URLの形式を確認
-   - ログでエラー内容を確認
-
-3. **重複通知が発生する**
-   - 前回チェック時刻の管理を確認
-   - 記事IDの重複チェック機能を確認
-
-### デバッグ方法
-
-```javascript
-// 設定確認
-checkConfiguration();
-
-// RSSフィードアクセステスト
-testRssFeedAccess();
-
-// 通知テスト
-testNotification();
-```
-
-## 📝 カスタマイズ
-
-### 通知メッセージの変更
-
-`createRssMessage`関数を編集：
-
-```javascript
-function createRssMessage(articles) {
-  let message = `📰 新しい記事があります\n\n`;
-  
-  articles.forEach(article => {
-    message += `📋 タイトル: ${article.title}\n`;
-    message += `📅 公開日: ${formatDateTime(article.pubDate)}\n`;
-    if (article.author) message += `👤 著者: ${article.author}\n`;
-    message += `🔗 URL: ${article.link}\n`;
-    if (article.description) {
-      const summary = article.description.replace(/<[^>]*>/g, '').substring(0, 100);
-      message += `📝 概要: ${summary}...\n`;
-    }
-    message += `\n`;
-  });
-  
-  return message;
-}
-```
-
-### RSSフィードパーサーの変更
-
-異なるRSS形式に対応する場合、`parseRssFeed`関数を編集：
-
-```javascript
-function parseRssFeed(xmlContent) {
-  const document = XmlService.parse(xmlContent);
-  const root = document.getRootElement();
-  const channel = root.getChild('channel');
-  const items = channel.getChildren('item');
-  
-  return items.map(item => ({
-    title: getElementText(item, 'title'),
-    link: getElementText(item, 'link'),
-    description: getElementText(item, 'description'),
-    pubDate: getElementText(item, 'pubDate'),
-    author: getElementText(item, 'author') || getElementText(item, 'dc:creator'),
-    guid: getElementText(item, 'guid')
-  }));
-}
-```
-
-### 通知条件の変更
-
-```javascript
-function shouldNotify(article, lastCheckTime) {
-  const articleDate = new Date(article.pubDate);
-  const threshold = new Date(lastCheckTime.getTime() + (CHECK_INTERVAL_HOURS * 60 * 60 * 1000));
-  
-  return articleDate > lastCheckTime && articleDate <= threshold;
-}
-```
-
-## 🔗 関連リンク
-
-- [RSS 2.0 仕様](https://cyber.harvard.edu/rss/rss.html)
-- [Atom 仕様](https://tools.ietf.org/html/rfc4287)
-- [Google Apps Script XML Service](https://developers.google.com/apps-script/reference/xml-service)
-- [Slack Incoming Webhooks](https://api.slack.com/messaging/webhooks)
-- [Discord Webhook API](https://discord.com/developers/docs/resources/webhook) 
+3. **ローカル環境の整理**
+   - ローカルのディレクトリ内にある `.clasp.json` を削除すると、GASプロジェクトとのリンクが解除されます。

@@ -125,6 +125,9 @@ coverage/
 *.test.js
 *.spec.js
 
+# AI-DLC working documents
+aidlc-docs/
+
 # Documentation build
 docs/build/
 docs/_build/
