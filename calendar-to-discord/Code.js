@@ -154,7 +154,7 @@ function send2Discord(events) {
   const webhookUrl = PropertiesService.getScriptProperties().getProperty('DISCORD_WEBHOOK_URL');
   
   if (!isValidWebhookUrl(webhookUrl)) {
-    logWarning('Discord Webhook URLが正しく設定されていません', { webhookUrl });
+    logWarning('Discord Webhook URLが正しく設定されていません');
     return false;
   }
   
@@ -281,7 +281,7 @@ function checkConfiguration() {
     calendarValid: calendarValid,
     webhookValid: webhookValid,
     calendarId: calendarId,
-    webhookUrl: webhookUrl
+    webhookUrl: webhookUrl ? '***configured***' : 'not set'
   });
   
   if (calendarValid && webhookValid) {

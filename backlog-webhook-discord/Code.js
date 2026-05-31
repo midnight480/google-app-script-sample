@@ -142,7 +142,7 @@ function doPost(e) {
     }
   } catch (error) {
     logError('Webhook処理エラー', error);
-    return ContentService.createTextOutput(JSON.stringify({ 'status': 'error', 'message': error.message }))
+    return ContentService.createTextOutput(JSON.stringify({ 'status': 'error', 'message': 'Internal server error' }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
@@ -213,7 +213,7 @@ function sendToDiscordWithErrorHandling(message, webhookUrl) {
   }
 
   if (!isValidWebhookUrl(webhookUrl)) {
-    logError('Invalid Discord webhook URL format', { webhookUrl });
+    logError('Invalid Discord webhook URL format');
     return false;
   }
 
