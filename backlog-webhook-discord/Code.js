@@ -87,7 +87,20 @@ function doPost(e) {
   try {
     logInfo('Webhook受信開始');
     
-    const data = JSON.parse(e.postData.contents);
+    const data = (() => {
+      try {
+        return JSON.parse(e.postData.contents);
+      } catch (parseError) {
+        logError('JSONパースエラー', parseError);
+        return null;
+      }
+    })();
+    
+    if (!data) {
+      return ContentService.createTextOutput(JSON.stringify({ 'status': 'error', 'message': 'Invalid JSON payload' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
     logInfo('受信したWebhookデータ', { 
       type: data.type,
       projectKey: data.project?.projectKey,

@@ -214,7 +214,7 @@ function sendDiscordNotificationWithErrorHandling(message) {
   }
 
   if (!webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
-    logError('Invalid Discord webhook URL format', { webhookUrl });
+    logError('Invalid Discord webhook URL format');
     return false;
   }
 

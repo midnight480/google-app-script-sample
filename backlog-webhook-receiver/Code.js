@@ -87,7 +87,17 @@ function doPost(e) {
     
     // リクエストデータをJSONとしてパース
     const rawData = e.postData.contents;
-    const jsonData = JSON.parse(rawData);
+    let jsonData;
+    try {
+      jsonData = JSON.parse(rawData);
+    } catch (parseError) {
+      logError('JSONパースエラー', parseError);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'error',
+        message: 'Invalid JSON payload',
+        timestamp: new Date().toISOString()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
     
     logInfo('Webhookデータ解析完了', { 
       type: jsonData.type,
