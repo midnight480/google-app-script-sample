@@ -276,7 +276,8 @@ function checkConfiguration() {
   
   logInfo('設定確認結果', {
     isValid: isValid,
-    config: config
+    stockCode: config.stockCode,
+    slackChannel: config.slackChannel
   });
   
   if (isValid) {
