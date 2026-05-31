@@ -74,7 +74,7 @@ function doGet(e) {
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   } catch (error) {
     logError('GETリクエスト処理エラー', error);
-    return HtmlService.createHtmlOutput('<h1>エラーが発生しました</h1><p>' + error.toString() + '</p>');
+    return HtmlService.createHtmlOutput('<h1>エラーが発生しました</h1><p>ページの表示に失敗しました。管理者にお問い合わせください。</p>');
   }
 }
 
@@ -167,7 +167,7 @@ function doPost(e) {
     
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error',
-      message: error.toString(),
+      message: 'Webhook processing failed',
       timestamp: new Date().toISOString()
     })).setMimeType(ContentService.MimeType.JSON);
   }
