@@ -6,6 +6,7 @@ BacklogのWebhookを受信し、カテゴリに応じて適切なDiscordチャ�
 
 - Backlogの課題作成・更新・コメント追加をDiscordに通知
 - カテゴリ別のWebhook URL設定（複数チャンネル対応）
+- 共有シークレット検証による不正POSTの遮断
 - エラーハンドリングと詳細なログ出力
 - Webhookデータのバリデーション
 
@@ -68,6 +69,7 @@ clasp create --type standalone --title "Backlog Webhook to Discord"
         -   `BACKLOG_URL`: `{YOUR_BACKLOG_DOMAIN}.backlog.(jp|com)`
         -   `DISCORD_WEBHOOK_URL`: `https://discord.com/api/webhooks/your-webhook-url`
         -   `CATEGORY_MAP`: `{"カテゴリID1":"WebhookURL1", "カテゴリID2":"WebhookURL2"}` (JSON形式)
+        -   `WEBHOOK_SECRET`: 共有シークレット（**手動入力不要**。後述の `generateWebhookSecret()` で自動生成）
 3.  **保存**:
     「スクリプトプロパティを保存」をクリックします。
 
@@ -96,6 +98,47 @@ clasp push
 clasp deploy
 ```
 
+### 5. 共有シークレットの生成（必須）
+
+Webアプリは Backlog からの受信のため、認証なし（`ANYONE_ANONYMOUS`）で公開する必要があります。
+URLを知られただけで偽の通知を送られないよう、共有シークレットによる検証を行います。
+
+GASエディタで `generateWebhookSecret` 関数を選択して実行してください。
+
+```
+共有シークレットを生成しました。
+
+WEBHOOK_SECRET: 3f9a1c8e7b2d4a6f8c0e1b3d5a7f9c2e
+
+BacklogのWebhookに登録するURL:
+https://script.google.com/macros/s/AKfycb.../exec?token=3f9a1c8e7b2d4a6f8c0e1b3d5a7f9c2e
+```
+
+表示されたURL（`?token=` 付き）を Backlog の Webhook 設定に登録してください。
+
+> ⚠️ **`WEBHOOK_SECRET` が未設定の間、Webアプリはすべてのリクエストを拒否します。**
+> 設定漏れによって無防備な状態で公開されることを防ぐためのフェイルクローズ方式です。
+> Backlogから通知が届かない場合は、まずこの設定を確認してください。
+
+> ⚠️ このURLとシークレットは第三者に共有しないでください。
+
+### 6. 設定確認
+
+GASエディタで `checkConfiguration` を実行すると、設定漏れが一覧で出力されます。
+
+## 🔒 セキュリティ
+
+| 対策 | 内容 |
+|------|------|
+| 共有シークレット検証 | `?token=` の値を `WEBHOOK_SECRET` と照合し、不一致なら破棄 |
+| フェイルクローズ | `WEBHOOK_SECRET` 未設定時も受信を拒否する |
+| 定数時間比較 | 長さ差・文字差をビット演算で集約し、タイミング攻撃の手掛かりを減らす |
+| シークレットの非ログ出力 | 通常のログには出力しない（`generateWebhookSecret()` 実行時のみ表示） |
+
+### シークレットを更新したい場合
+
+`generateWebhookSecret()` を再実行し、表示された新しいURLで Backlog 側の Webhook 設定を更新してください。
+
 ## 🔧 使用方法
 
 ### メイン関数
@@ -109,13 +152,11 @@ function doPost(e) {
 
 ### テスト関数
 
-```javascript
-// 設定確認
-checkConfiguration();
-
-// Webhook処理テスト
-testWebhookProcessing();
-```
+| 関数 | 用途 |
+|------|------|
+| `generateWebhookSecret()` | 共有シークレットを生成し、登録用URLをログに出力 |
+| `checkConfiguration()` | スクリプトプロパティの設定状態を検証 |
+| `testWebhookProcessing()` | サンプルペイロードでメッセージ生成を検証 |
 
 ## 📊 通知内容
 
@@ -166,7 +207,9 @@ https://{YOUR_BACKLOG_DOMAIN}.backlog.(jp|com)/view/PROJECT-123
 
 1. **Webhookが受信されない**
    - BacklogのWebhook設定を確認
-   - Google Apps ScriptのデプロイURLを確認
+   - **登録URLに `?token=` が付いているか確認**（ログに `Unauthorized` が出ていないか）
+   - **`WEBHOOK_SECRET` が設定済みか確認**（未設定だと全リクエストを拒否します）
+   - Google Apps ScriptのデプロイURLを確認（`/dev` ではなく `/exec` を使うこと）
    - アクセス権限を確認
 
 2. **Discordに通知されない**

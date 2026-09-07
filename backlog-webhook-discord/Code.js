@@ -57,13 +57,61 @@ function isValidWebhookUrl(url) {
   return url.startsWith('https://discord.com/api/webhooks/');
 }
 
+/**
+ * 共有シークレットを検証する（フェイルクローズ方式）
+ *
+ * Webアプリは Backlog からの受信のため認証なし（ANYONE_ANONYMOUS）で公開する必要がある。
+ * URLを知られただけで偽の通知を送られないよう、クエリパラメータ ?token= の値を
+ * スクリプトプロパティ WEBHOOK_SECRET と照合する。
+ *
+ * WEBHOOK_SECRET が未設定の場合も受信を拒否し、設定漏れによる無防備な公開を防ぐ。
+ * シークレットはプロパティから都度読み込む（生成直後から反映させるため）。
+ */
+function verifyWebhookSecret(e) {
+  const expected = (PropertiesService.getScriptProperties()
+    .getProperty('WEBHOOK_SECRET') || '').trim();
+
+  if (!expected) {
+    logError('WEBHOOK_SECRETが未設定のため受信を拒否しました。generateWebhookSecret()を実行してください');
+    return false;
+  }
+
+  const provided = (e && e.parameter && e.parameter.token) ? e.parameter.token : '';
+
+  if (!isSecretMatch(provided, expected)) {
+    logWarning('共有シークレットが一致しないため受信を拒否しました', {
+      providedLength: provided.length
+    });
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * 文字列を定数時間に近い形で比較し、タイミング攻撃の手掛かりを減らす
+ */
+function isSecretMatch(provided, expected) {
+  if (typeof provided !== 'string' || typeof expected !== 'string') return false;
+
+  let diff = provided.length ^ expected.length;
+  const length = Math.max(provided.length, expected.length);
+
+  for (let i = 0; i < length; i++) {
+    diff |= (provided.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
+  }
+
+  return diff === 0;
+}
+
 // 設定の初期化
 function initializeConfig() {
   const properties = PropertiesService.getScriptProperties();
   const defaultConfig = {
     BACKLOG_URL: '{YOUR_BACKLOG_DOMAIN}.backlog.com',
     DISCORD_WEBHOOK_URL: '',
-    CATEGORY_MAP: '{}'
+    CATEGORY_MAP: '{}',
+    WEBHOOK_SECRET: ''
   };
 
   Object.entries(defaultConfig).forEach(([key, value]) => {
@@ -86,7 +134,13 @@ const CATEGORY_WEBHOOK_MAP = JSON.parse(categoryMapJson);
 function doPost(e) {
   try {
     logInfo('Webhook受信開始');
-    
+
+    // 共有シークレット検証（不一致・未設定なら破棄）
+    if (!verifyWebhookSecret(e)) {
+      return ContentService.createTextOutput(JSON.stringify({ 'status': 'error', 'message': 'Unauthorized' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     const data = (() => {
       try {
         return JSON.parse(e.postData.contents);
@@ -275,3 +329,88 @@ function testWebhookProcessing() {
     return false;
   }
 } 
+
+/**
+ * 共有シークレットを生成してスクリプトプロパティに保存する
+ * 実行後、ログに表示されたURLをBacklogのWebhookに登録すること
+ */
+function generateWebhookSecret() {
+  const properties = PropertiesService.getScriptProperties();
+  const secret = Utilities.getUuid().replace(/-/g, '');
+  properties.setProperty('WEBHOOK_SECRET', secret);
+
+  const deploymentUrl = ScriptApp.getService().getUrl() || '{デプロイ後のWebアプリURL}';
+
+  console.log([
+    '共有シークレットを生成しました。',
+    '',
+    'WEBHOOK_SECRET: ' + secret,
+    '',
+    'BacklogのWebhookに登録するURL:',
+    deploymentUrl + '?token=' + secret,
+    '',
+    '※このシークレットは第三者に共有しないでください。'
+  ].join('\n'));
+
+  return secret;
+}
+
+/**
+ * 設定内容を確認する
+ */
+function checkConfiguration() {
+  initializeConfig();
+  const properties = PropertiesService.getScriptProperties();
+
+  const backlogUrl = (properties.getProperty('BACKLOG_URL') || '').trim();
+  const defaultWebhookUrl = (properties.getProperty('DISCORD_WEBHOOK_URL') || '').trim();
+  const webhookSecret = (properties.getProperty('WEBHOOK_SECRET') || '').trim();
+
+  let categoryMap = {};
+  try {
+    categoryMap = JSON.parse(properties.getProperty('CATEGORY_MAP') || '{}') || {};
+  } catch (parseError) {
+    logError('CATEGORY_MAPのJSONパースに失敗しました', parseError);
+  }
+
+  const issues = [];
+
+  if (!backlogUrl || backlogUrl.indexOf('{YOUR_BACKLOG_DOMAIN}') !== -1) {
+    issues.push('BACKLOG_URL が未設定です（例: example.backlog.com）');
+  }
+
+  if (!webhookSecret) {
+    issues.push('WEBHOOK_SECRET が未設定です。generateWebhookSecret() を実行してください');
+  }
+
+  const categoryIds = Object.keys(categoryMap);
+  categoryIds.forEach(categoryId => {
+    if (!isValidWebhookUrl(categoryMap[categoryId])) {
+      issues.push(`CATEGORY_MAP のカテゴリID ${categoryId} のURLがDiscord Webhookの形式ではありません`);
+    }
+  });
+
+  if (defaultWebhookUrl && !isValidWebhookUrl(defaultWebhookUrl)) {
+    issues.push('DISCORD_WEBHOOK_URL がDiscord Webhookの形式ではありません');
+  }
+
+  if (categoryIds.length === 0 && !defaultWebhookUrl) {
+    issues.push('CATEGORY_MAP も DISCORD_WEBHOOK_URL も未設定のため、通知先がありません');
+  }
+
+  logInfo('設定確認', {
+    BACKLOG_URL: backlogUrl || '(未設定)',
+    DISCORD_WEBHOOK_URL: defaultWebhookUrl ? '(設定済み)' : '(未設定)',
+    CATEGORY_MAP: categoryIds.length > 0 ? categoryIds.join(', ') : '(未設定)',
+    WEBHOOK_SECRET: webhookSecret ? '(設定済み)' : '(未設定)',
+    webAppUrl: ScriptApp.getService().getUrl() || '(未デプロイ)'
+  });
+
+  if (issues.length > 0) {
+    logWarning('設定に問題があります', { issues: issues });
+    return false;
+  }
+
+  logInfo('設定は正常です');
+  return true;
+}
