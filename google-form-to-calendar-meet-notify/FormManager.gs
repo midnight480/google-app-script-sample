@@ -192,7 +192,8 @@ class FormManager {
         throw new Error('Backlogプロジェクトのユーザー一覧が取得できませんでした。設定を確認してください。');
       }
       
-      // リストボックス項目を作成
+      // リストボックス項目を作成（addListItem()はリストボックス形式のフィールドを作成）
+      // 注意: addListItem()は必ずリストボックス（プルダウン）形式を作成します
       const listItem = form.addListItem()
         .setTitle(title)
         .setHelpText('課題の担当者となるユーザーを選択してください')
@@ -201,20 +202,39 @@ class FormManager {
       // ユーザーを選択肢として追加
       // Google Apps Scriptでは、createChoiceは値のみを受け取り、表示名は値と同じになります
       // 値として「ユーザー名|ユーザーID」の形式を使用（表示名として見やすく、後で解析可能）
-      const choices = users.map(user => {
+      const choices = [];
+      for (const user of users) {
         const displayName = user.name || user.userId || `ユーザーID: ${user.id}`;
         // 値として「ユーザー名|ユーザーID」の形式を使用（後で解析できるように）
         const value = `${displayName}|${user.id}`;
-        return listItem.createChoice(value);
-      });
+        choices.push(listItem.createChoice(value));
+      }
+      
+      // 選択肢を設定（これによりリストボックス形式が確定される）
+      // 選択肢が1つ以上あることを確認
+      if (choices.length === 0) {
+        throw new Error('選択肢が作成できませんでした');
+      }
       
       listItem.setChoices(choices);
       
+      // リストボックス形式であることを確認（デバッグ用）
+      const itemType = listItem.getType();
       logInfo('Backlog担当者リストボックス追加完了', {
         formId: form.getId(),
         userCount: users.length,
-        title: title
+        title: title,
+        itemType: itemType.toString(),
+        choicesCount: choices.length
       });
+      
+      // リストボックス形式でない場合は警告
+      if (itemType !== FormApp.ItemType.LIST) {
+        logWarning('リストボックス形式でない可能性があります', {
+          expectedType: 'LIST',
+          actualType: itemType.toString()
+        });
+      }
       
       return listItem;
       
