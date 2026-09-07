@@ -1,5 +1,11 @@
 # Cursor Project Instructions (google-app-script-sample)
 
+> **このファイルがエージェント定義の Single Source of Truth です。**
+> `CLAUDE.md` / `GEMINI.md` はこのファイルを参照するだけのポインタ、
+> `.cursorrules` / `.clinerules` / `.antigravity/rules.md` / `.github/copilot-instructions.md` は
+> このファイルから生成される複製です。内容を変更する場合は**このファイルを編集**し、
+> `./scripts/sync-agent-rules.sh` を実行してください。
+
 ## 出力言語
 - すべての出力は日本語で行ってください
 - 思考の過程で英語を使用するのは構いません

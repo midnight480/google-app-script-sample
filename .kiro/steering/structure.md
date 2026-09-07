@@ -7,7 +7,6 @@
 ├── .kiro/                          # Kiro設定ファイル
 ├── README.md                       # プロジェクト全体の説明
 ├── LICENSE                         # ライセンス情報
-├── EFFICIENCY_REPORT.md            # 効率性レポート
 ├── PR_DESCRIPTION.md               # プルリクエスト説明
 ├── backlog-space-project-list/     # Backlogプロジェクト一覧取得
 ├── backlog-space-user-list/        # Backlogユーザー一覧取得
