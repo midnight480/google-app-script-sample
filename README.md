@@ -16,11 +16,12 @@
 このリポジトリには以下のスクリプトが含まれています：
 
 1. **Backlog Webhook to Discord** - BacklogのWebhookをDiscordに転送
-2. **Backlog Webhook Receiver** - BacklogのWebhookデータをスプレッドシートに記録
-3. **Calendar to Discord** - Google Calendarの予定をDiscordに通知
-4. **Saga Garbage Notify** - 佐賀市のごみ収集日をDiscordに通知
-5. **Stock Notify Slack** - 株価情報をSlackに通知
-6. **Get RSS Feed** - RSSフィードのURLを処理
+2. **Backlog Webhook to Slack** - BacklogのWebhookをカテゴリ別のSlackチャンネルに転送
+3. **Backlog Webhook Receiver** - BacklogのWebhookデータをスプレッドシートに記録
+4. **Calendar to Discord** - Google Calendarの予定をDiscordに通知
+5. **Saga Garbage Notify** - 佐賀市のごみ収集日をDiscordに通知
+6. **Stock Notify Slack** - 株価情報をSlackに通知
+7. **Get RSS Feed** - RSSフィードのURLを処理
 
 ## 🚀 セットアップ手順
 
@@ -88,6 +89,19 @@ Google Apps Scriptのエディタで「プロジェクトの設定」→「ス�
      }
    }
    ```
+
+#### Backlog Webhook to Slack
+
+スクリプトプロパティ（GASエディタで設定）：
+
+| プロパティ名 | 説明 |
+|-------------|------|
+| `BACKLOG_URL` | Backlogのドメイン（例: `example.backlog.com`） |
+| `CATEGORY_MAP` | `{"カテゴリID": "Slack Incoming Webhook URL"}` のJSON |
+| `SLACK_WEBHOOK_URL` | 既定チャンネルのIncoming Webhook URL |
+| `WEBHOOK_SECRET` | 共有シークレット（`generateWebhookSecret()` で自動生成） |
+
+詳細は [`backlog-webhook-slack/README.md`](backlog-webhook-slack/README.md) を参照してください。
 
 #### Backlog Webhook Receiver
 
@@ -176,6 +190,22 @@ BacklogのWebhookを受信し、カテゴリに応じて適切なDiscordチャ�
 **設定項目：**
 - `BACKLOG_URL`: BacklogのURL
 - `DISCORD_WEBHOOK_URL`: Discord Webhook URL（デフォルト）
+
+### Backlog Webhook to Slack
+
+BacklogのWebhookを受信し、課題のカテゴリに応じて通知先のSlackチャンネルを振り分けます。
+
+**機能：**
+- 課題の作成・更新・コメント追加の通知
+- カテゴリID別のSlack Incoming Webhook振り分け
+- Block Kit形式のリッチな通知（課題リンク・属性・変更差分・引用）
+- 共有シークレット（`?token=`）による不正POSTの遮断
+
+**設定項目：**
+- `BACKLOG_URL`: Backlogのドメイン
+- `CATEGORY_MAP`: カテゴリID → Slack Incoming Webhook URL のJSON
+- `SLACK_WEBHOOK_URL`: 既定チャンネルのIncoming Webhook URL
+- `WEBHOOK_SECRET`: 共有シークレット
 
 ### Backlog Webhook Receiver
 
