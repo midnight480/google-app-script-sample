@@ -1,10 +1,11 @@
 # Project Instructions (google-app-script-sample)
 
-> **このファイルがエージェント定義の Single Source of Truth です。**
-> `CLAUDE.md` / `GEMINI.md` はこのファイルを参照するだけのポインタ、
-> `.cursorrules` / `.clinerules` / `.antigravity/rules.md` / `.github/copilot-instructions.md` は
-> このファイルから生成される複製です。内容を変更する場合は**このファイルを編集**し、
-> `./scripts/sync-agent-rules.sh` を実行してください。
+> **このファイルがエージェント定義の唯一の実体です。**
+> `CLAUDE.md` / `GEMINI.md` / `.cursorrules` / `.clinerules` /
+> `.antigravity/rules.md` / `.github/copilot-instructions.md` は、
+> いずれもこのファイルを参照するだけの短いポインタです。
+> **内容を変更する場合はこのファイルだけを編集してください。**
+> 複製は存在しないため、同期作業は不要です。
 
 ## 出力言語
 - すべての出力は日本語で行ってください
