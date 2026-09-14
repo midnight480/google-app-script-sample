@@ -66,7 +66,7 @@ clasp create --type standalone --title "Backlog Webhook to Discord"
     -   エディタの左側メニューから「プロジェクトの設定」（歯車アイコン）をクリックします。
     -   「スクリプトプロパティ」セクションで、「スクリプトプロパティを追加」をクリックします。
     -   以下のキーと値を設定します。
-        -   `BACKLOG_URL`: `{YOUR_BACKLOG_DOMAIN}.backlog.(jp|com)`
+        -   `BACKLOG_URL`: `{YOUR_BACKLOG_DOMAIN}.backlog.(jp|com)`（`https://` の有無は問いません）
         -   `DISCORD_WEBHOOK_URL`: `https://discord.com/api/webhooks/your-webhook-url`
         -   `CATEGORY_MAP`: `{"カテゴリID1":"WebhookURL1", "カテゴリID2":"WebhookURL2"}` (JSON形式)
         -   `WEBHOOK_SECRET`: 共有シークレット（**手動入力不要**。後述の `generateWebhookSecret()` で自動生成）
@@ -86,7 +86,19 @@ clasp create --type standalone --title "Backlog Webhook to Discord"
 }
 ```
 
-この設定は、`doPost`関数内の`CATEGORY_WEBHOOK_MAP`に反映されます。
+スクリプトプロパティは**リクエストを受信するたびに読み込まれる**ため、`CATEGORY_MAP` や `DISCORD_WEBHOOK_URL` を変更すると、再デプロイしなくても次の通知から反映されます。
+
+`CATEGORY_MAP` が不正なJSON、またはオブジェクト形式でない場合はエラーログを出力したうえで空のマッピングとして扱い、既定の通知先（`DISCORD_WEBHOOK_URL`）へフォールバックします。
+
+#### カテゴリ振り分けロジック
+
+| 課題のカテゴリ | 通知先 |
+|---------------|--------|
+| `CATEGORY_MAP` にIDが登録されている | 対応するWebhook URL |
+| 複数カテゴリが登録済み | **最初にマッチした1件のみ**に通知 |
+| どのIDにもマッチしない | 既定の通知先（`DISCORD_WEBHOOK_URL`） |
+| カテゴリ未設定 | 既定の通知先（`DISCORD_WEBHOOK_URL`） |
+| 上記で既定の通知先も未設定 | 通知しない（ログに警告を出力） |
 
 ### 4. デプロイ
 
@@ -156,7 +168,7 @@ function doPost(e) {
 |------|------|
 | `generateWebhookSecret()` | 共有シークレットを生成し、登録用URLをログに出力 |
 | `checkConfiguration()` | スクリプトプロパティの設定状態を検証 |
-| `testWebhookProcessing()` | サンプルペイロードでメッセージ生成を検証 |
+| `testWebhookProcessing()` | サンプルペイロードでメッセージ生成と通知先の解決を検証（送信はしない） |
 
 ## 📊 通知内容
 
@@ -219,7 +231,8 @@ https://{YOUR_BACKLOG_DOMAIN}.backlog.(jp|com)/view/PROJECT-123
 
 3. **カテゴリ別通知が動作しない**
    - カテゴリIDが正しいか確認
-   - `CATEGORY_WEBHOOK_MAP`の設定を確認
+   - `CATEGORY_MAP` が正しいJSON形式か確認（パース失敗時はログに `CATEGORY_MAPのJSONパースに失敗` と出力され、既定の通知先が使われます）
+   - `checkConfiguration()` を実行し、各カテゴリのURLがDiscord Webhookの形式か確認
 
 ### デバッグ方法
 
@@ -238,17 +251,18 @@ console.log('デバッグ情報');
 `createIssueCreatedMessage`、`createIssueUpdatedMessage`、`createCommentAddedMessage`関数を編集：
 
 ```javascript
-function createIssueCreatedMessage(project, content, createdUser) {
+function createIssueCreatedMessage(project, content, createdUser, config) {
   return `🎉 新しい課題が作成されました！
 📋 ${content.summary}
 👤 ${createdUser.name}
-🔗 https://${BACKLOG_URL}/view/${project.projectKey}-${content.key_id}`;
+🔗 ${buildIssueUrl(config.backlogUrl, project, content)}`;
 }
 ```
 
 ### カテゴリ判定ロジックの変更
 
 `getWebhookUrlForCategories`関数を編集して、独自の判定ロジックを追加できます。
+スクリプトプロパティの値は `loadConfig()` が返す `config`（`categoryMap` / `defaultWebhookUrl` など）経由で参照してください。
 
 
 ## 🗑 プロジェクトの削除（アンインストール）
