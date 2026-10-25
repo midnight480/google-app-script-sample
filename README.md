@@ -22,6 +22,7 @@
 5. **Saga Garbage Notify** - 佐賀市のごみ収集日をDiscordに通知
 6. **Stock Notify Slack** - 株価情報をSlackに通知
 7. **Get RSS Feed** - RSSフィードのURLを処理
+8. **Gmail to Slack with Filtering** - 特定の送信元からのメールの指定項目をSlackに通知し、スプレッドシートに記録
 
 ## 🚀 セットアップ手順
 
@@ -274,6 +275,26 @@ Yahoo Financeから株価情報を取得し、Slackに通知します。
 - `TARGET_SPREADSHEET_ID`: ターゲットスプレッドシートID
 - `TARGET_SHEET_NAME`: ターゲットシート名
 - `TARGET_COLUMN_NAME`: ターゲット列名
+
+### Gmail to Slack with Filtering
+
+Gmailで受信したメールを送信元（From）と宛先（To、任意）で絞り込み、本文から指定した項目だけを抜き出してSlackに通知します。通知内容はスプレッドシートにも記録されます。詳細は [gmail-to-slack-with-filtering/README.md](gmail-to-slack-with-filtering/README.md) を参照してください。
+
+**機能：**
+- From / To（任意）でのメール絞り込み
+- 「項目名: 値」形式と、項目名と値が空行で区切られた形式の両方から項目を抽出
+- 抽出項目はスクリプトプロパティ（JSON）で変更でき、コードの修正は不要
+- Block Kit形式のSlack通知（SlackAppライブラリを使用）
+- 項目ごとに列を分けてスプレッドシートに記録（集計用）
+- 非エンジニア向けのREADME、AIエージェント向けのAGENTS.mdとSkillsを同梱
+
+**設定項目：**
+- `FROM_ADDRESSES`: 送信元アドレス（カンマ区切り）
+- `TO_ADDRESSES`: 宛先アドレス（任意・カンマ区切り）
+- `EXTRACT_FIELDS`: 抽出する項目（JSON）
+- `SLACK_BOT_TOKEN`: Slack Bot Token
+- `SLACK_CHANNEL_ID`: 投稿先チャンネルID
+- `SPREADSHEET_ID`: 記録先スプレッドシートID（任意。未設定なら自動作成）
 
 ## 🔧 使用方法
 
